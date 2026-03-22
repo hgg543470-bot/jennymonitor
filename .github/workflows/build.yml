@@ -33,12 +33,19 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade buildozer cython setuptools
 
-      - name: Build with Buildozer
+            - name: Build with Buildozer
         run: |
-          # Убираем защиту папки
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          # Запускаем сборку — он сам скачает нужный SDK (34), который мы указали в спеке
+          # 1. Принудительно устанавливаем инструменты нужной версии (34)
+          # Это создаст нужные папки, чтобы Бульдозер не тупил
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;34.0.0" "platforms;android-34" "platform-tools"
+          
+          # 2. Принимаем все лицензии
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+          
+          # 3. Запускаем саму сборку
           buildozer android debug
+
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
