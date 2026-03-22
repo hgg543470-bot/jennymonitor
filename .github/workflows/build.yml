@@ -1,25 +1,33 @@
 name: Build APK
 on: [push, pull_request, workflow_dispatch]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libltdl-dev zlib1g-dev openjdk-17-jdk unzip zip cmake autoconf libtool pkg-config python3-setuptools
           pip install --upgrade pip buildozer cython setuptools
+
       - name: Build with Buildozer
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;34.0.0" "platforms;android-34"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+          # Наш робот-юрист автоматически подписывает лицензии прямо в файле
+          sed -i 's/^#* *android.accept_sdk_license.*/android.accept_sdk_license = True/' buildozer.spec
+          sed -i 's/^#* *android.build_tools_version.*/android.build_tools_version = 34.0.0/' buildozer.spec
+          sed -i 's/^#* *android.api.*/android.api = 34/' buildozer.spec
+          # Запускаем сборку
           buildozer android debug
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
