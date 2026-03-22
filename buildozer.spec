@@ -18,7 +18,7 @@ source.include_exts = py,png,jpg,kv,atlas,spec
 version = 0.1
 
 # (list) Application requirements
-requirements = python3,kivy,requests,urllib3,hostpython3,cython,chardet,idna,pyjnius
+requirements = python3,kivy,hostpython3,cython==0.29.36,requests,urllib3,chardet,idna,pyjnius
 
 # (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
 orientation = portrait
@@ -55,7 +55,7 @@ android.skip_update = False
 android.ndk = 25b
 
 # (list) The Android architectures to build for
-android.archs = arm64-v8a, armeabi-v7a
+android.archs = arm64-v8a
 
 # (bool) Allow backup
 android.allow_backup = True
