@@ -17,23 +17,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential \
-            libffi-dev \
-            libssl-dev \
-            libltdl-dev \
-            zlib1g-dev \
-            openjdk-17-jdk \
-            unzip \
-            zip \
-            cmake \
-            autoconf \
-            libtool \
-            pkg-config \
+            build-essential libffi-dev libssl-dev libltdl-dev zlib1g-dev \
+            openjdk-17-jdk unzip zip cmake autoconf libtool pkg-config \
             python3-setuptools
-          pip install --upgrade pip
-          pip install --upgrade buildozer cython setuptools
+          pip install --upgrade pip buildozer cython setuptools
 
-            - name: Build with Buildozer
+      - name: Build with Buildozer
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # Принимаем лицензии и ставим инструменты 34 вручную
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;34.0.0" "platforms;android-34"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+          # Погнали собирать!
+          buildozer android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JennyMonitor-Package
+          path: bin/*.apk
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           # 1. Принудительно устанавливаем инструменты нужной версии (34)
