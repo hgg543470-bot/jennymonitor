@@ -5,25 +5,39 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-level: '3.11'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libffi-dev libssl-dev
-          pip install --upgrade buildozer cython
+          sudo apt-get install -y \
+            build-essential \
+            libffi-dev \
+            libssl-dev \
+            libltdl-dev \
+            zlib1g-dev \
+            openjdk-17-jdk \
+            unzip \
+            zip \
+            cmake \
+            autoconf \
+            libtool \
+            pkg-config
+          pip install --upgrade pip
+          pip install --upgrade buildozer cython setuptools
 
       - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        with:
-          buildozer_version: master
-          command: android debug
-          repository_read_token: ${{ github.token }}
+        run: |
+          # Исправляем проблему с правами доступа, которую мы видели в логах
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # Запуск сборки (в режиме отладки)
+          buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
