@@ -1,0 +1,33 @@
+name: Build APK
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-level: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libffi-dev libssl-dev
+          pip install --upgrade buildozer cython
+
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        with:
+          buildozer_version: master
+          command: android debug
+          repository_read_token: ${{ github.token }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: JennyMonitor-Package
+          path: bin/*.apk
+          
