@@ -16,7 +16,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libltdl-dev zlib1g-dev openjdk-17-jdk unzip zip cmake autoconf libtool pkg-config python3-setuptools
-          pip install --upgrade pip buildozer cython setuptools
+          pip install --upgrade pip buildozer "Cython==0.29.33" setuptools wheel
 
       - name: Build with Buildozer
         run: |
