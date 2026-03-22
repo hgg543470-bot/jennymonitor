@@ -35,7 +35,7 @@ fullscreen = 0
 android.permissions = INTERNET,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,FOREGROUND_SERVICE,REQUEST_INSTALL_PACKAGES,MANAGE_EXTERNAL_STORAGE,moe.shizuku.privileged.api
 
 # шизука
-android.meta_data = moe.shizuku.privileged.api
+#android.meta_data = moe.shizuku.privileged.api
 
 # (int) Target Android API
 android.api = 34
