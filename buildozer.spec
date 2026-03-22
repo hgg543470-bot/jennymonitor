@@ -49,7 +49,7 @@ android.minapi = 21
 android.accept_sdk_license = True
 
 # (bool) If True, then skip trying to update the Android sdk
-android.skip_update = True
+android.skip_update = False
 
 # (str) Android NDK version to use
 android.ndk = 25b
