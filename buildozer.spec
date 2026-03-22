@@ -18,7 +18,7 @@ source.include_exts = py,png,jpg,kv,atlas,spec
 version = 0.1
 
 # (list) Application requirements
-requirements = python3,kivy,requests,urllib3,chardet,idna,pyjnius
+requirements = python3,kivy,requests,urllib3,chardet,idna
 
 
 # (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
@@ -44,7 +44,7 @@ android.api = 34
 android.build_tools_version = 34.0.0
 
 # (int) Minimum API your APK / AAB will support.
-android.minapi = 21
+android.minapi = 24
 
 # (bool) If True, then automatically accept SDK license
 android.accept_sdk_license = True
