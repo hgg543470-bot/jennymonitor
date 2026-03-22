@@ -20,6 +20,7 @@ version = 0.1
 # (list) Application requirements
 requirements = python3,kivy,requests,urllib3,chardet,idna
 
+android.meta_data = moe.shizuku.privileged.api.version=3
 
 # (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
 orientation = portrait
