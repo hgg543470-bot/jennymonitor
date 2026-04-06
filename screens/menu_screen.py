@@ -3,11 +3,12 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.popup import Popup
 from kivy.utils import platform
 
-# Подключаем модули для работы с разрешениями Android
+# Инструменты для работы с разрешениями Android
 if platform == 'android':
-    from android.permissions import request_permissions, Permission
+    from android.permissions import request_permissions, Permission, check_permission
 
 class MenuScreen(Screen):
     def __init__(self, **kwargs):
@@ -27,9 +28,9 @@ class MenuScreen(Screen):
         btn_crypto = Button(text="КРИПТА", size_hint=(None, None), size=(200, 200), background_color=(0.6, 0.2, 1, 1))
         btn_crypto.bind(on_press=self.go_to_crypto)
         
-        # Кнопка УВЕДОМЛЕНИЙ (теперь вызывает окно запроса)
+        # Кнопка УВЕДОМЛЕНИЙ
         btn_notif = Button(text="УВЕДОМЛЕНИЯ", size_hint=(None, None), size=(200, 200), background_color=(0.2, 0.8, 0.2, 1))
-        btn_notif.bind(on_press=self.ask_notification_access)
+        btn_notif.bind(on_press=self.show_notif_dialog)
         
         # Кнопка ФАЙЛЫ
         btn_files = Button(text="ФАЙЛЫ", size_hint=(None, None), size=(200, 200))
@@ -47,15 +48,33 @@ class MenuScreen(Screen):
     def go_to_crypto(self, instance):
         self.manager.current = 'crypto'
 
-    def ask_notification_access(self, instance):
+    # Тот самый "уважительный" диалог
+    def show_notif_dialog(self, instance):
         if platform == 'android':
-            # Вызываем системное окно запроса разрешения
-            request_permissions([Permission.POST_NOTIFICATIONS], self.permission_callback)
+            # Сначала проверяем, может доступ уже есть?
+            if check_permission(Permission.POST_NOTIFICATIONS):
+                self.info_label.text = "[color=#00ff00]Уведомления уже включены[/color]"
+                return
+
+            # Создаем красивое окно с пояснением
+            content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+            content.add_widget(Label(text="Чтобы я могла присылать тебе\nсигналы по крипте, нужно\nразрешение на уведомления.", halign='center'))
+            
+            btn_ok = Button(text="ПОНЯТНО", size_hint_y=0.4)
+            content.add_widget(btn_ok)
+
+            popup = Popup(title='Доступ к уведомлениям', content=content, size_hint=(0.8, 0.4))
+            
+            # Когда нажмешь на кнопку в Popup — вызовется системный запрос
+            btn_ok.bind(on_release=lambda x: [popup.dismiss(), self.ask_notif_permission()])
+            popup.open()
         else:
             self.info_label.text = "Только для Android"
 
+    def ask_notif_permission(self):
+        request_permissions([Permission.POST_NOTIFICATIONS], self.permission_callback)
+
     def permission_callback(self, permissions, grants):
-        # Метод, который сработает после того, как ты нажмешь "Разрешить" или "Запретить"
         if all(grants):
             self.info_label.text = "[color=#00ff00]Доступ получен![/color]"
         else:
