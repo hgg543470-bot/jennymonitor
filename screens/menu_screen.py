@@ -6,9 +6,10 @@ from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.popup import Popup
 from kivy.utils import platform
 
-# Инструменты для работы с разрешениями Android
+# Подключаем инструменты Android
 if platform == 'android':
     from android.permissions import request_permissions, Permission, check_permission
+    from android import AndroidService
 
 class MenuScreen(Screen):
     def __init__(self, **kwargs):
@@ -30,7 +31,7 @@ class MenuScreen(Screen):
         
         # Кнопка УВЕДОМЛЕНИЙ
         btn_notif = Button(text="УВЕДОМЛЕНИЯ", size_hint=(None, None), size=(200, 200), background_color=(0.2, 0.8, 0.2, 1))
-        btn_notif.bind(on_press=self.show_notif_dialog)
+        btn_notif.bind(on_press=self.manage_notifications)
         
         # Кнопка ФАЙЛЫ
         btn_files = Button(text="ФАЙЛЫ", size_hint=(None, None), size=(200, 200))
@@ -48,28 +49,25 @@ class MenuScreen(Screen):
     def go_to_crypto(self, instance):
         self.manager.current = 'crypto'
 
-    # Тот самый "уважительный" диалог
-    def show_notif_dialog(self, instance):
+    def manage_notifications(self, instance):
         if platform == 'android':
-            # Сначала проверяем, может доступ уже есть?
+            # Если разрешение уже есть — просто запускаем сервис
             if check_permission(Permission.POST_NOTIFICATIONS):
-                self.info_label.text = "[color=#00ff00]Уведомления уже включены[/color]"
-                return
-
-            # Создаем красивое окно с пояснением
-            content = BoxLayout(orientation='vertical', padding=10, spacing=10)
-            content.add_widget(Label(text="Чтобы я могла присылать тебе\nсигналы по крипте, нужно\nразрешение на уведомления.", halign='center'))
-            
-            btn_ok = Button(text="ПОНЯТНО", size_hint_y=0.4)
-            content.add_widget(btn_ok)
-
-            popup = Popup(title='Доступ к уведомлениям', content=content, size_hint=(0.8, 0.4))
-            
-            # Когда нажмешь на кнопку в Popup — вызовется системный запрос
-            btn_ok.bind(on_release=lambda x: [popup.dismiss(), self.ask_notif_permission()])
-            popup.open()
+                self.start_monitor_service()
+            else:
+                # Если нет — показываем наш диалог
+                self.show_notif_dialog()
         else:
             self.info_label.text = "Только для Android"
+
+    def show_notif_dialog(self):
+        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        content.add_widget(Label(text="Для работы в шторке\nнужно разрешение.", halign='center'))
+        btn_ok = Button(text="ПОНЯТНО", size_hint_y=0.4)
+        content.add_widget(btn_ok)
+        popup = Popup(title='Доступ', content=content, size_hint=(0.8, 0.4))
+        btn_ok.bind(on_release=lambda x: [popup.dismiss(), self.ask_notif_permission()])
+        popup.open()
 
     def ask_notif_permission(self):
         request_permissions([Permission.POST_NOTIFICATIONS], self.permission_callback)
@@ -77,8 +75,18 @@ class MenuScreen(Screen):
     def permission_callback(self, permissions, grants):
         if all(grants):
             self.info_label.text = "[color=#00ff00]Доступ получен![/color]"
+            self.start_monitor_service() # Запускаем сразу после клика "Разрешить"
         else:
             self.info_label.text = "[color=#ff0000]Доступ отклонен[/color]"
+
+    def start_monitor_service(self):
+        try:
+            # Тот самый запуск, который мы прописали в buildozer.spec
+            service = AndroidService('monitor', 'running')
+            service.start('JennyMonitor service started')
+            self.info_label.text = "[color=#00ff00]СЕРВИС ЗАПУЩЕН[/color]"
+        except Exception as e:
+            self.info_label.text = f"[color=#ff0000]Ошибка: {e}[/color]"
 
     def ask_files_access(self, instance):
         if platform == 'android':
@@ -94,5 +102,5 @@ class MenuScreen(Screen):
                 intent.setData(uri)
                 Activity.mActivity.startActivity(intent)
             else:
-                self.info_label.text = "[color=#00ff00]Доступ есть[/color]"
-                
+                self.info_label.text = "[color=#00ff00]Файлы: Ок[/color]"
+            
