@@ -51,18 +51,21 @@ class MenuScreen(Screen):
             Uri = autoclass('android.net.Uri')
             Activity = autoclass('org.kivy.android.PythonActivity')
             
-            package_name = "org.test.jennymonitor"
+            # Получаем имя пакета динамически
+            package_name = Activity.mActivity.getPackageName()
             
             try:
-                # Пытаемся открыть настройки уведомлений напрямую
+                # План А: Прямой переход в настройки уведомлений
                 intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 intent.putExtra("android.provider.extra.APP_PACKAGE", package_name)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 Activity.mActivity.startActivity(intent)
             except Exception:
-                # Если не вышло — открываем карточку "О приложении"
+                # План Б: Если не вышло — открываем карточку "О приложении"
                 intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 uri = Uri.parse("package:" + package_name)
                 intent.setData(uri)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 Activity.mActivity.startActivity(intent)
         else:
             self.info_label.text = "Только для Android"
