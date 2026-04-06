@@ -2,12 +2,13 @@ from time import sleep
 from jnius import autoclass
 from android.runnable import run_on_ui_thread
 
-# Системные классы
+# Получаем ссылку на сам сервис
 PythonService = autoclass('org.kivy.android.PythonService')
 service = PythonService.mService
 
 @run_on_ui_thread
-def start_foreground_high_priority():
+def start_foreground():
+    # Системные классы
     NotificationBuilder = autoclass('android.app.Notification$Builder')
     NotificationChannel = autoclass('android.app.NotificationChannel')
     NotificationManager = autoclass('android.app.NotificationManager')
@@ -15,50 +16,46 @@ def start_foreground_high_priority():
     Intent = autoclass('android.content.Intent')
     PendingIntent = autoclass('android.app.PendingIntent')
     
-    channel_id = 'jennymonitor_vital'
-    channel_name = 'JennyMonitor: Основной монитор'
+    # Динамически получаем имя твоего пакета (org.test.jennymonitor)
+    package_name = service.getPackageName()
+    channel_id = package_name + '.monitor_channel'
     
-    # 1. Создаем канал с ВЫСОКОЙ важностью (чтобы шторка точно была)
-    importance = NotificationManager.IMPORTANCE_HIGH
-    channel = NotificationChannel(channel_id, channel_name, importance)
-    channel.setDescription("Важные уведомления о работе системы")
-    
-    notification_manager = service.getSystemService(Context.NOTIFICATION_SERVICE)
-    notification_manager.createNotificationChannel(channel)
+    # 1. Создаем канал с МАКСИМАЛЬНОЙ важностью
+    # IMPORTANCE_HIGH = 4. Это заставит шторку появиться.
+    channel = NotificationChannel(channel_id, "JennyMonitor Monitor", 4)
+    nm = service.getSystemService(Context.NOTIFICATION_SERVICE)
+    nm.createNotificationChannel(channel)
 
-    # 2. Делаем так, чтобы при клике на уведомление открывалось приложение
+    # 2. Настраиваем клик по уведомлению (чтобы открывалось окно)
     # Используем стандартный Activity класс Kivy
     intent = Intent(service, autoclass('org.kivy.android.PythonActivity'))
     pending_intent = PendingIntent.getActivity(service, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
     # 3. Собираем уведомление
     builder = NotificationBuilder(service, channel_id)
-    builder.setContentTitle("JennyMonitor: РАБОТАЕТ")
-    builder.setContentText("Мониторинг активен. Система под контролем.")
+    builder.setContentTitle("JennyMonitor")
+    builder.setContentText("Мониторинг активен в шторке")
+    # Берем иконку самого приложения
     builder.setSmallIcon(service.getApplicationInfo().icon)
     builder.setContentIntent(pending_intent)
     builder.setOngoing(True) # Нельзя смахнуть
-    
-    # Добавляем приоритет для старых версий Android (на всякий случай)
-    builder.setPriority(2) # PRIORITY_MAX
 
-    notification = builder.build()
-    
-    # 4. Запуск с флагом SPECIAL_USE (1073741824)
-    # На Android 16 это критично!
+    # 4. ЗАПУСК. 
+    # Тип SPECIAL_USE (1073741824) обязателен для твоего Android 16!
     try:
+        notification = builder.build()
         service.startForeground(1, notification, 1073741824)
-        print("СЕРВИС: Foreground запущен успешно")
     except Exception as e:
-        print(f"СЕРВИС: Ошибка запуска: {e}")
-        # Пробуем без типа, если система капризничает
+        # Если Android 16 капризничает, пробуем без типа
+        print(f"Service Error: {e}")
         service.startForeground(1, notification)
 
 if __name__ == '__main__':
-    start_foreground_high_priority()
-    count = 0
+    # Даем системе 1 секунду "продышаться" перед запуском уведомления
+    sleep(1)
+    start_foreground()
     while True:
-        count += 1
-        print(f"JennyMonitor Service Log: Цикл №{count}")
+        # Сервис просто крутится в фоне
+        print("JennyMonitor Service is alive...")
         sleep(10)
         
