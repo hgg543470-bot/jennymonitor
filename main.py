@@ -6,60 +6,57 @@ from kivy.utils import platform
 
 class JennyMonitorLayout(BoxLayout):
     def __init__(self, **kwargs):
-        # Настраиваем главный экран: вертикальное расположение, отступы
         super().__init__(orientation='vertical', padding=30, spacing=20)
         
-        # Информационное табло
         self.info_label = Label(
-            text="JennyMonitor\nСистемы в норме, жду команд!",
+            text="JennyMonitor v0.1\n[color=#ffff00]Жду команд...[/color]",
             halign='center',
+            markup=True,
             font_size='20sp'
         )
         self.add_widget(self.info_label)
         
-        # Кнопка для базовых прав (Уведомления и Файлы)
-        btn_perms = Button(
-            text="Запросить базовые права\n(Файлы и Уведомления)",
-            size_hint=(1, 0.3),
-            background_color=(0.2, 0.8, 0.2, 1) # Зеленоватый цвет
-        )
-        btn_perms.bind(on_press=self.request_android_permissions)
-        self.add_widget(btn_perms)
+        # Кнопка для уведомлений (вызывает стандартное окошко)
+        btn_notify = Button(text="1. Разрешить уведомления", size_hint=(1, 0.3))
+        btn_notify.bind(on_press=self.ask_notifications)
+        self.add_widget(btn_notify)
 
-        # Кнопка для магии Shizuku
-        btn_shizuku = Button(
-            text="Связаться с Shizuku",
-            size_hint=(1, 0.3),
-            background_color=(0.2, 0.6, 1, 1) # Синий цвет
-        )
-        btn_shizuku.bind(on_press=self.request_shizuku)
-        self.add_widget(btn_shizuku)
+        # Кнопка для файлов (перекидывает в настройки)
+        btn_files = Button(text="2. Дать доступ ко всем файлам", size_hint=(1, 0.3))
+        btn_files.bind(on_press=self.ask_files_access)
+        self.add_widget(btn_files)
 
-    def request_android_permissions(self, instance):
+    def ask_notifications(self, instance):
         if platform == 'android':
-            from android.permissions import request_permissions, Permission
-            # Формируем список того, что нам нужно спросить у Android 14
-            perms = [
-                Permission.POST_NOTIFICATIONS,     # Для пуш-уведомлений
-                Permission.READ_EXTERNAL_STORAGE,  # Чтение файлов
-                Permission.WRITE_EXTERNAL_STORAGE  # Запись файлов
-            ]
-            # Вызываем системное окно Android
-            request_permissions(perms, self.permissions_callback)
-            self.info_label.text = "Окна запросов отправлены на экран..."
+            from android.permissions import request_permissions
+            # На новых версиях Android уведомления просятся отдельным флагом
+            request_permissions(['android.permission.POST_NOTIFICATIONS'])
+            self.info_label.text = "Вызвано окно уведомлений!"
         else:
-            self.info_label.text = "Это не Android! Права не нужны."
+            self.info_label.text = "Это ПК, права не нужны."
 
-    def permissions_callback(self, permissions, grants):
-        # Эта функция сработает, когда ты нажмешь "Разрешить" или "Отклонить"
-        if all(grants):
-            self.info_label.text = "УРА!\nФайлы и уведомления разрешены ✅"
-        else:
-            self.info_label.text = "ОТКАЗ ❌\nНе все права были выданы."
-
-    def request_shizuku(self, instance):
-        # Пока ставим заглушку, так как для Shizuku нужен будет код на pyjnius
-        self.info_label.text = "Подключаю PyJnius...\n(Скоро здесь будет вызов API Shizuku!)"
+    def ask_files_access(self, instance):
+        if platform == 'android':
+            from jnius import autoclass
+            Environment = autoclass('android.os.Environment')
+            
+            # Проверяем, есть ли у нас уже полный доступ к файлам
+            if not Environment.isExternalStorageManager():
+                self.info_label.text = "Открываю системные настройки..."
+                
+                # Формируем системный Intent для открытия нужного экрана
+                Intent = autoclass('android.content.Intent')
+                Settings = autoclass('android.provider.Settings')
+                Uri = autoclass('android.net.Uri')
+                PythonActivity = autoclass('org.kivy.android.PythonActivity')
+                
+                intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                uri = Uri.parse("package:" + PythonActivity.mActivity.getPackageName())
+                intent.setData(uri)
+                # Перекидываем пользователя в настройки
+                PythonActivity.mActivity.startActivity(intent)
+            else:
+                self.info_label.text = "[color=#00ff00]Доступ к файлам УЖЕ ПОЛУЧЕН![/color]"
 
 class JennyMonitorApp(App):
     def build(self):
