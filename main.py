@@ -10,197 +10,203 @@ from kivy.utils import platform
 from kivy.graphics import Color, Line, Ellipse
 import requests
 import threading
-import os
 
-# Глобальные данные
+# Глобальное хранилище векторов
 history_cache = {}
-favorites = set() # Множество ID избранных монет
-log_path = "" # Путь к папке логов
 
-# --- ЭКРАН 1: ГЛАВНОЕ МЕНЮ ---
+# --- ЭКРАН 1: ГЛАВНОЕ МЕНЮ (Кнопки 200x200 по центру) ---
 class MenuScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         main_layout = BoxLayout(orientation='vertical', padding=20)
         
-        self.info_label = Label(text="JennyMonitor v0.6", size_hint_y=0.1, markup=True)
+        self.info_label = Label(
+            text="JennyMonitor v0.5", 
+            size_hint_y=0.1, markup=True, font_size='18sp'
+        )
         main_layout.add_widget(self.info_label)
 
         anchor = AnchorLayout(anchor_x='center', anchor_y='center')
+        
+        # Сетка кнопок 200x200
         btns_grid = BoxLayout(orientation='vertical', spacing=15, size_hint=(None, None))
         btns_grid.bind(minimum_height=btns_grid.setter('height'), minimum_width=btns_grid.setter('width'))
 
-        # Кнопки 200x200
-        for text, screen, color in [("КРИПТА", 'crypto', (0.6, 0.2, 1, 1)), 
-                                    ("БИРЖА", 'menu', (0.2, 0.6, 1, 1)), 
-                                    ("ФАЙЛЫ", 'files', (0.5, 0.5, 0.5, 1))]:
-            btn = Button(text=text, size_hint=(None, None), size=(200, 200), background_color=color)
-            if screen != 'menu':
-                btn.bind(on_press=lambda x, s=screen: self.change_screen(s))
-            btns_grid.add_widget(btn)
+        # Кнопки
+        btn_crypto = Button(text="КРИПТА", size_hint=(None, None), size=(200, 200), background_color=(0.6, 0.2, 1, 1))
+        btn_crypto.bind(on_press=self.go_to_crypto)
+        
+        btn_stocks = Button(text="БИРЖА", size_hint=(None, None), size=(200, 200), background_color=(0.2, 0.6, 1, 1))
+        
+        btn_files = Button(text="ФАЙЛЫ", size_hint=(None, None), size=(200, 200))
+        btn_files.bind(on_press=self.ask_files_access)
+
+        btns_grid.add_widget(btn_crypto)
+        btns_grid.add_widget(btn_stocks)
+        btns_grid.add_widget(btn_files)
         
         anchor.add_widget(btns_grid)
         main_layout.add_widget(anchor)
+        main_layout.add_widget(BoxLayout(size_hint_y=0.1))
+
         self.add_widget(main_layout)
 
-    def change_screen(self, name):
-        self.manager.current = name
+    def go_to_crypto(self, instance):
+        self.manager.current = 'crypto'
 
-# --- ЭКРАН ФАЙЛОВ / ПРОВОДНИК ---
-class FileScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        layout = BoxLayout(orientation='vertical', padding=20, spacing=20)
-        
-        btn_back = Button(text="< Назад", size_hint_y=0.1)
-        btn_back.bind(on_press=self.back)
-        layout.add_widget(btn_back)
-
-        self.path_label = Label(text="Папка для логов не выбрана", size_hint_y=0.2)
-        layout.add_widget(self.path_label)
-
-        btn_select = Button(text="Выбрать папку для логов", size_hint_y=0.2)
-        btn_select.bind(on_press=self.select_folder)
-        layout.add_widget(btn_select)
-        
-        layout.add_widget(Label(size_hint_y=0.5))
-        self.add_widget(layout)
-
-    def select_folder(self, instance):
+    def ask_files_access(self, instance):
         if platform == 'android':
-            # В следующей итерации прикрутим jnius проводник, пока ставим дефолт во внутреннюю память
             from jnius import autoclass
             Env = autoclass('android.os.Environment')
-            path = Env.getExternalStorageDirectory().getAbsolutePath() + "/JennyLogs"
-            if not os.path.exists(path): os.makedirs(path)
-            global log_path
-            log_path = path
-            self.path_label.text = f"Логи пишутся в:\n{path}"
-        else:
-            self.path_label.text = "На ПК логи в папке скрипта"
+            if not Env.isExternalStorageManager():
+                Intent = autoclass('android.content.Intent')
+                Settings = autoclass('android.provider.Settings')
+                Uri = autoclass('android.net.Uri')
+                Activity = autoclass('org.kivy.android.PythonActivity')
+                intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                uri = Uri.parse("package:" + Activity.mActivity.getPackageName())
+                intent.setData(uri)
+                Activity.mActivity.startActivity(intent)
+            else:
+                self.info_label.text = "[color=#00ff00]Доступ есть[/color]"
 
-    def back(self, instance): self.manager.current = 'menu'
-
-# --- ЭКРАН СПИСКА (Текст 120 в высоту) ---
+# --- ЭКРАН 2: СПИСОК КРИПТЫ (Высота строки 180) ---
 class CryptoScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.layout = BoxLayout(orientation='vertical')
+        self.layout = BoxLayout(orientation='vertical', padding=5)
         
         header = BoxLayout(size_hint_y=0.08)
-        btn_back = Button(text="<", size_hint_x=0.2); btn_back.bind(on_press=self.back)
+        btn_back = Button(text="< Назад", size_hint_x=0.2)
+        btn_back.bind(on_press=self.back)
         header.add_widget(btn_back)
-        self.status = Label(text="Обновление...", size_hint_x=0.8); header.add_widget(self.status)
+        self.status_label = Label(text="Загрузка...", size_hint_x=0.8)
+        header.add_widget(self.status_label)
         self.layout.add_widget(header)
 
         self.scroll = ScrollView()
-        self.list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=5)
-        self.list.bind(minimum_height=self.list.setter('height'))
-        self.scroll.add_widget(self.list)
+        self.crypto_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=2)
+        self.crypto_list.bind(minimum_height=self.crypto_list.setter('height'))
+        self.scroll.add_widget(self.crypto_list)
         self.layout.add_widget(self.scroll)
         self.add_widget(self.layout)
 
-        Clock.schedule_interval(lambda dt: self.refresh(), 30)
-        self.refresh()
+        self.all_crypto = []
+        self.refresh_data()
+        Clock.schedule_interval(lambda dt: self.refresh_data(), 30)
 
-    def refresh(self):
-        threading.Thread(target=self.fetch).start()
+    def refresh_data(self):
+        threading.Thread(target=self.fetch_api).start()
 
-    def fetch(self):
+    def fetch_api(self):
         try:
-            url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&per_page=50"
-            data = requests.get(url).json()
-            Clock.schedule_once(lambda dt: self.update_ui(data))
-            # Логирование избранного
-            if log_path:
+            url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1"
+            res = requests.get(url, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                self.all_crypto = []
                 for item in data:
-                    if item['id'] in favorites:
-                        f_path = f"{log_path}/{item['id']}.txt"
-                        with open(f_path, "a") as f:
-                            f.write(f"{item['current_price']}\n")
+                    c_id = item['id']
+                    price = item['current_price']
+                    if c_id not in history_cache: history_cache[c_id] = []
+                    if not history_cache[c_id] or history_cache[c_id][-1] != price:
+                        history_cache[c_id].append(price)
+                    if len(history_cache[c_id]) > 30: history_cache[c_id].pop(0)
+                    
+                    self.all_crypto.append({
+                        "id": c_id, "name": item['name'], "symbol": item['symbol'].upper(),
+                        "price": price, "change": round(item.get("price_change_percentage_24h") or 0, 2),
+                        "cap": item['market_cap'], "vol": item['total_volume']
+                    })
+                Clock.schedule_once(lambda dt: self.update_ui())
         except: pass
 
-    def update_ui(self, data):
-        self.list.clear_widgets()
-        for c in data:
-            c_id = c['id']
-            # Сохраняем в историю
-            if c_id not in history_cache: history_cache[c_id] = []
-            history_cache[c_id].append(c['current_price'])
-            if len(history_cache[c_id]) > 30: history_cache[c_id].pop(0)
-
-            # Карточка 180 высотой, текст 120
-            row = BoxLayout(size_hint_y=None, height=180)
-            
-            star = "⭐" if c_id in favorites else "☆"
-            btn_fav = Button(text=star, size_hint_x=0.2, font_size='40sp')
-            btn_fav.bind(on_press=lambda x, i=c_id: self.toggle_fav(i))
-            
-            btn_main = Button(
-                text=f"[b]{c['symbol'].upper()}[/b]  [size=120sp]{c['current_price']}$[/size]",
-                markup=True, size_hint_x=0.8, halign='left', background_color=(0.1, 0.1, 0.1, 1)
+    def update_ui(self):
+        self.crypto_list.clear_widgets()
+        self.status_label.text = "Криптовалюты Live"
+        for c in self.all_crypto:
+            color = "#00ff00" if c['change'] >= 0 else "#ff0000"
+            # Высота строки 180, на всю ширину
+            btn = Button(
+                text=f"[b]{c['symbol']}[/b] | {c['name']}\n[size=40sp]{c['price']} $[/size]\n[color={color}]Изменение: {c['change']}%[/color]",
+                markup=True, size_hint_y=None, height=180, background_color=(0.12, 0.12, 0.12, 1)
             )
-            btn_main.bind(on_release=lambda x, d=c: App.get_running_app().open_details(d))
-            
-            row.add_widget(btn_fav)
-            row.add_widget(btn_main)
-            self.list.add_widget(row)
-
-    def toggle_fav(self, c_id):
-        if c_id in favorites: favorites.remove(c_id)
-        else: favorites.add(c_id)
-        self.refresh()
+            btn.bind(on_release=lambda x, d=c: App.get_running_app().open_details(d))
+            self.crypto_list.add_widget(btn)
 
     def back(self, instance): self.manager.current = 'menu'
 
-# --- ЭКРАН ДЕТАЛЕЙ (Умный график) ---
+# --- ЭКРАН 3: ДЕТАЛИ (График с ценами в точках) ---
 class DetailScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.layout = BoxLayout(orientation='vertical', padding=10)
-        btn_back = Button(text="< Назад", size_hint_y=0.1); btn_back.bind(on_press=self.back)
+        self.layout = BoxLayout(orientation='vertical', padding=15, spacing=10)
+        
+        btn_back = Button(text="< Назад к списку", size_hint_y=0.08)
+        btn_back.bind(on_press=self.back)
         self.layout.add_widget(btn_back)
 
-        self.head = Label(text="", size_hint_y=0.2, markup=True, font_size='24sp')
-        self.layout.add_widget(self.head)
+        self.info_box = Label(text="", font_size='18sp', size_hint_y=0.25, markup=True, halign='left')
+        self.info_box.bind(size=self.info_box.setter('text_size'))
+        self.layout.add_widget(self.info_box)
 
-        self.chart = BoxLayout(size_hint_y=0.7)
-        self.layout.add_widget(self.chart)
+        # Контейнер для графика и меток цен
+        self.chart_container = BoxLayout(orientation='vertical', size_hint_y=0.67)
+        self.chart_area = BoxLayout() # Тут рисуем линию
+        self.chart_container.add_widget(self.chart_area)
+        self.layout.add_widget(self.chart_container)
+
         self.add_widget(self.layout)
+        self.current_coin = None
 
     def load_data(self, coin):
-        self.current_id = coin['id']
-        self.head.text = f"{coin['name']}\n[color=#00ffff]{coin['current_price']}$[/color]"
-        Clock.schedule_once(lambda dt: self.draw(), 0.1)
+        self.current_coin = coin
+        cap_m = round(coin['cap'] / 1_000_000_000, 2)
+        self.info_box.text = (
+            f"[b][size=24sp]{coin['name']} ({coin['symbol']})[/size][/b]\n"
+            f"Текущая цена: [color=#00ffff]{coin['price']} $[/color]\n"
+            f"Капитализация: {cap_m} млрд. $\n"
+            f"Объем торгов (24ч): {coin['vol']} $"
+        )
+        Clock.schedule_once(lambda dt: self.draw_vector(), 0.1)
 
-    def draw(self):
-        self.chart.canvas.after.clear()
-        for child in self.chart.children[:]: self.chart.remove_widget(child)
-        
-        prices = history_cache.get(self.current_id, [])
+    def draw_vector(self):
+        self.chart_area.canvas.after.clear()
+        # Удаляем старые метки цен (лейблы)
+        for child in self.chart_area.children[:]:
+            self.chart_area.remove_widget(child)
+
+        prices = history_cache.get(self.current_coin['id'], [])
         if len(prices) < 2: return
 
-        with self.chart.canvas.after:
-            Color(0, 0.8, 1, 1)
-            w, h = self.chart.width, self.chart.height
-            x0, y0 = self.chart.x, self.chart.y
+        with self.chart_area.canvas.after:
+            Color(0, 0.8, 1, 1) # Голубой вектор
+            w, h = self.chart_area.width, self.chart_area.height
+            x0, y0 = self.chart_area.x, self.chart_area.y
+            
             p_min, p_max = min(prices), max(prices)
             p_range = (p_max - p_min) if p_max != p_min else 1
             
-            pts = []
+            line_pts = []
             for i, p in enumerate(prices):
-                cx = x0 + (i/(len(prices)-1))*w
-                cy = y0 + ((p-p_min)/p_range)*h
-                pts.extend([cx, cy])
+                cur_x = x0 + (i / (len(prices)-1)) * w
+                cur_y = y0 + ((p - p_min) / p_range) * h
+                line_pts.extend([cur_x, cur_y])
                 
-                # Точка и цена рядом
+                # Рисуем точку
                 Color(1, 1, 1, 1)
-                Ellipse(pos=(cx-5, cy-5), size=(10, 10))
-                # Сдвигаем текст цены, чтобы не накладывался
-                lbl = Label(text=f"{p}", pos=(cx - 20, cy + 15), size_hint=(None, None), size=(100, 30), font_size='12sp')
-                self.chart.add_widget(lbl)
-                Color(0, 0.8, 1, 1)
-            Line(points=pts, width=3)
+                Ellipse(pos=(cur_x-4, cur_y-4), size=(8, 8))
+                
+                # Добавляем текст цены над точкой (каждую 2-ю точку для чистоты, если их много)
+                if i % 1 == 0 or i == len(prices)-1:
+                    price_label = Label(
+                        text=f"{p}$", pos=(cur_x - 40, cur_y + 10),
+                        size_hint=(None, None), size=(80, 20), font_size='10sp'
+                    )
+                    self.chart_area.add_widget(price_label)
+            
+            Color(0, 0.8, 1, 1)
+            Line(points=line_pts, width=2)
 
     def back(self, instance): self.manager.current = 'crypto'
 
@@ -210,13 +216,12 @@ class JennyMonitorApp(App):
         self.sm.add_widget(MenuScreen(name='menu'))
         self.sm.add_widget(CryptoScreen(name='crypto'))
         self.sm.add_widget(DetailScreen(name='detail'))
-        self.sm.add_widget(FileScreen(name='files'))
         return self.sm
-
     def open_details(self, data):
-        sc = self.sm.get_screen('detail'); sc.load_data(data)
+        sc = self.sm.get_screen('detail')
+        sc.load_data(data)
         self.sm.current = 'detail'
 
 if __name__ == '__main__':
     JennyMonitorApp().run()
-            
+    
