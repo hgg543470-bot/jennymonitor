@@ -69,6 +69,8 @@ android.copy_libs = 1
 # (str) The name of the main entry point
 android.entrypoint = org.kivy.android.PythonActivity
 
+services = monitor:service.py
+
 [buildozer]
 # (int) Log level (0 = error only, 1 = info, 2 = debug)
 log_level = 2
