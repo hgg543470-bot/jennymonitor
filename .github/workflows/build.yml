@@ -18,14 +18,24 @@ jobs:
           sudo apt-get install -y build-essential libffi-dev libssl-dev libltdl-dev zlib1g-dev openjdk-17-jdk unzip zip cmake autoconf libtool pkg-config python3-setuptools
           pip install --upgrade pip buildozer "Cython==0.29.33" setuptools wheel
 
+      # --- ВОТ ЭТОТ БЛОК ТЫ ЗАБЫЛ ---
+      - name: Cache Buildozer directories
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
+      # ------------------------------
+
       - name: Build with Buildozer
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          # Наш робот-юрист автоматически подписывает лицензии прямо в файле
           sed -i 's/^#* *android.accept_sdk_license.*/android.accept_sdk_license = True/' buildozer.spec
           sed -i 's/^#* *android.build_tools_version.*/android.build_tools_version = 34.0.0/' buildozer.spec
           sed -i 's/^#* *android.api.*/android.api = 34/' buildozer.spec
-          # Запускаем сборку
           buildozer android debug
 
       - name: Upload APK
