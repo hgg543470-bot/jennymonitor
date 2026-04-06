@@ -5,6 +5,10 @@ from kivy.uix.label import Label
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.utils import platform
 
+# Подключаем модули для работы с разрешениями Android
+if platform == 'android':
+    from android.permissions import request_permissions, Permission
+
 class MenuScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -23,7 +27,7 @@ class MenuScreen(Screen):
         btn_crypto = Button(text="КРИПТА", size_hint=(None, None), size=(200, 200), background_color=(0.6, 0.2, 1, 1))
         btn_crypto.bind(on_press=self.go_to_crypto)
         
-        # Кнопка УВЕДОМЛЕНИЙ
+        # Кнопка УВЕДОМЛЕНИЙ (теперь вызывает окно запроса)
         btn_notif = Button(text="УВЕДОМЛЕНИЯ", size_hint=(None, None), size=(200, 200), background_color=(0.2, 0.8, 0.2, 1))
         btn_notif.bind(on_press=self.ask_notification_access)
         
@@ -45,30 +49,17 @@ class MenuScreen(Screen):
 
     def ask_notification_access(self, instance):
         if platform == 'android':
-            from jnius import autoclass
-            Intent = autoclass('android.content.Intent')
-            Settings = autoclass('android.provider.Settings')
-            Uri = autoclass('android.net.Uri')
-            Activity = autoclass('org.kivy.android.PythonActivity')
-            
-            # Получаем имя пакета динамически
-            package_name = Activity.mActivity.getPackageName()
-            
-            try:
-                # План А: Прямой переход в настройки уведомлений
-                intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                intent.putExtra("android.provider.extra.APP_PACKAGE", package_name)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                Activity.mActivity.startActivity(intent)
-            except Exception:
-                # План Б: Если не вышло — открываем карточку "О приложении"
-                intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                uri = Uri.parse("package:" + package_name)
-                intent.setData(uri)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                Activity.mActivity.startActivity(intent)
+            # Вызываем системное окно запроса разрешения
+            request_permissions([Permission.POST_NOTIFICATIONS], self.permission_callback)
         else:
             self.info_label.text = "Только для Android"
+
+    def permission_callback(self, permissions, grants):
+        # Метод, который сработает после того, как ты нажмешь "Разрешить" или "Запретить"
+        if all(grants):
+            self.info_label.text = "[color=#00ff00]Доступ получен![/color]"
+        else:
+            self.info_label.text = "[color=#ff0000]Доступ отклонен[/color]"
 
     def ask_files_access(self, instance):
         if platform == 'android':
