@@ -17,7 +17,7 @@ source.include_exts = py,png,jpg,kv,atlas,spec
 # (str) Application versioning (method 1)
 version = 0.1
 
-# (list) Application requirements
+# (list) Application requirements (оставляем без изменений)
 requirements = python3,kivy,requests,urllib3,chardet,idna
 
 android.meta_data = moe.shizuku.privileged.api.version=3
@@ -32,11 +32,8 @@ fullscreen = 0
 # Настройки Android (Версия 34 + Авто-лицензии)
 # ==========================================================
 
-# (list) Permissions 
-android.permissions = INTERNET,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,FOREGROUND_SERVICE,REQUEST_INSTALL_PACKAGES,MANAGE_EXTERNAL_STORAGE,moe.shizuku.privileged.api
-
-# шизука
-#android.meta_data = moe.shizuku.privileged.api
+# (list) Permissions (добавлен POST_NOTIFICATIONS)
+android.permissions = INTERNET,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,FOREGROUND_SERVICE,REQUEST_INSTALL_PACKAGES,MANAGE_EXTERNAL_STORAGE,moe.shizuku.privileged.api,POST_NOTIFICATIONS
 
 # (int) Target Android API
 android.api = 34
