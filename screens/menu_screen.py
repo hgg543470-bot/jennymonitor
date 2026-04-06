@@ -19,16 +19,20 @@ class MenuScreen(Screen):
         anchor = AnchorLayout(anchor_x='center', anchor_y='center')
         btns_grid = BoxLayout(orientation='vertical', spacing=15, size_hint=(None, None))
 
+        # Кнопка КРИПТА
         btn_crypto = Button(text="КРИПТА", size_hint=(None, None), size=(200, 200), background_color=(0.6, 0.2, 1, 1))
         btn_crypto.bind(on_press=self.go_to_crypto)
         
-        btn_stocks = Button(text="БИРЖА", size_hint=(None, None), size=(200, 200), background_color=(0.2, 0.6, 1, 1))
+        # Кнопка УВЕДОМЛЕНИЙ (открывает настройки)
+        btn_notif = Button(text="УВЕДОМЛЕНИЯ", size_hint=(None, None), size=(200, 200), background_color=(0.2, 0.8, 0.2, 1))
+        btn_notif.bind(on_press=self.ask_notification_access)
         
+        # Кнопка ФАЙЛЫ
         btn_files = Button(text="ФАЙЛЫ", size_hint=(None, None), size=(200, 200))
         btn_files.bind(on_press=self.ask_files_access)
 
         btns_grid.add_widget(btn_crypto)
-        btns_grid.add_widget(btn_stocks)
+        btns_grid.add_widget(btn_notif)
         btns_grid.add_widget(btn_files)
         
         anchor.add_widget(btns_grid)
@@ -39,6 +43,24 @@ class MenuScreen(Screen):
     def go_to_crypto(self, instance):
         self.manager.current = 'crypto'
 
+    def ask_notification_access(self, instance):
+        if platform == 'android':
+            from jnius import autoclass
+            # Подтягиваем нужные Android-классы
+            Intent = autoclass('android.content.Intent')
+            Settings = autoclass('android.provider.Settings')
+            Activity = autoclass('org.kivy.android.PythonActivity')
+            
+            # Создаем намерение открыть настройки уведомлений приложения
+            intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            # Передаем пакет нашего приложения, чтобы открылась нужная страница
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, Activity.mActivity.getPackageName())
+            
+            # Запускаем настройки
+            Activity.mActivity.startActivity(intent)
+        else:
+            self.info_label.text = "Настройки доступны только на Android"
+
     def ask_files_access(self, instance):
         if platform == 'android':
             from jnius import autoclass
@@ -48,10 +70,12 @@ class MenuScreen(Screen):
                 Settings = autoclass('android.provider.Settings')
                 Uri = autoclass('android.net.Uri')
                 Activity = autoclass('org.kivy.android.PythonActivity')
+                
+                # Специальный Intent для доступа ко всем файлам
                 intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                 uri = Uri.parse("package:" + Activity.mActivity.getPackageName())
                 intent.setData(uri)
                 Activity.mActivity.startActivity(intent)
             else:
-                self.info_label.text = "[color=#00ff00]Доступ есть[/color]"
-              
+                self.info_label.text = "[color=#00ff00]Доступ к файлам есть[/color]"
+                
