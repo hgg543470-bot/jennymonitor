@@ -6,59 +6,55 @@ PythonService = autoclass('org.kivy.android.PythonService')
 service = PythonService.mService
 
 @run_on_ui_thread
-def start_media_session_foreground():
-    # Системные инструменты Android для "игры в плеер"
+def start_clean_foreground():
+    # Системные классы Android
     NotificationBuilder = autoclass('android.app.Notification$Builder')
     NotificationChannel = autoclass('android.app.NotificationChannel')
     NotificationManager = autoclass('android.app.NotificationManager')
     Context = autoclass('android.content.Context')
-    MediaSession = autoclass('android.media.session.MediaSession')
-    MediaStyle = autoclass('android.app.Notification$MediaStyle')
+    Intent = autoclass('android.content.Intent')
+    PendingIntent = autoclass('android.app.PendingIntent')
     
-    # Новый ID канала для чистого старта
-    channel_id = 'jenny_v56_media'
+    # Меняем ID канала, чтобы сбросить старые блокировки системы
+    channel_id = 'jenny_v58_clean'
     
-    # 1. Создаем канал с ВЫСОКИМ приоритетом (для шторки)
-    # IMPORTANCE_HIGH = 4
-    channel = NotificationChannel(channel_id, "JennyMonitor Service", 4)
+    # 1. Создаем канал с высоким приоритетом
+    channel = NotificationChannel(channel_id, "JennyMonitor Tracker", 4)
     nm = service.getSystemService(Context.NOTIFICATION_SERVICE)
     nm.createNotificationChannel(channel)
 
-    # 2. ВОТ ОНО! ВКЛЮЧАЕМ МИКРОФОН!
-    # Создаем Медиа-сессию. Система теперь видит, что артист готов петь.
-    session = MediaSession(service, "JennyMonitorSession")
-    # Активируем её. Всё, фейс-контроль пройден!
-    session.setActive(True)
-    
-    # 3. Собираем уведомление в стиле МЕДИА-ПЛЕЕРА (как у Benji-SC)
+    # 2. Настраиваем клик по шторке (возврат в приложение)
+    intent = Intent(service, autoclass('org.kivy.android.PythonActivity'))
+    pending_intent = PendingIntent.getActivity(service, 0, intent, 67108864)
+
+    # 3. Собираем чистое и простое уведомление
     builder = NotificationBuilder(service, channel_id)
     builder.setContentTitle("JennyMonitor")
-    # Текст, который увидим в шторке
-    builder.setContentText("Monitoring crypto & notifications...")
-    builder.setSmallIcon(service.getApplicationInfo().icon)
+    builder.setContentText("Мониторинг активен")
     
-    # Применяем MediaStyle. Это как раз те самые кнопочки плеера.
-    style = MediaStyle()
-    # Привязываем нашу сессию к уведомлению.
-    style.setMediaSession(session.getSessionToken())
-    builder.setStyle(style)
+    # Используем 100% рабочую системную иконку Android
+    android_id = autoclass('android.R$drawable')
+    builder.setSmallIcon(android_id.ic_menu_info_details)
     
-    builder.setOngoing(True) # Нельзя смахнуть
+    builder.setContentIntent(pending_intent)
+    builder.setOngoing(True) # Несмахиваемое
 
-    # 4. ЗАПУСК. Код 2 = FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+    # 4. ЗАПУСК. Код 1 = FOREGROUND_SERVICE_TYPE_DATA_SYNC
     try:
-        notification = builder.build()
-        service.startForeground(1, notification, 2)
-        print("JENNY: Шторка запущена через MediaSession!")
+        service.startForeground(1, builder.build(), 1)
+        print("JENNY: Чистая шторка DATA_SYNC запущена!")
     except Exception as e:
         print(f"Error: {e}")
-        service.startForeground(1, notification)
+        # Запасной вариант запуска
+        service.startForeground(1, builder.build())
 
 if __name__ == '__main__':
-    # Микро-задержка для стабильности HyperOS
+    # Небольшая пауза, чтобы UI успел отрисовать зеленую кнопку
     sleep(1)
-    start_media_session_foreground()
+    start_clean_foreground()
+    
+    # Жизненный цикл сервиса
     while True:
-        # Здесь будет твоя фоновая логика (проверка цен, Shizuku и т.д.)
+        print("JennyMonitor: Фоновая работа...")
         sleep(10)
         
