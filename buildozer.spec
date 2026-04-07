@@ -72,7 +72,8 @@ android.entrypoint = org.kivy.android.PythonActivity
 services = monitor:service.py:foreground
 
 # Добавляем тип сервиса прямо в AndroidManifest.xml
-android.manifest.service.monitor = android:foregroundServiceType="mediaPlayback"
+# android.manifest.service.monitor = android:foregroundServiceType="mediaPlayback"
+android.manifest.service.monitor = android:foregroundServiceType="dataSync"
 
 
 [buildozer]
