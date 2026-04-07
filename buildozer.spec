@@ -71,6 +71,10 @@ android.entrypoint = org.kivy.android.PythonActivity
 
 services = monitor:service.py:foreground
 
+# Добавляем тип сервиса прямо в AndroidManifest.xml
+android.manifest.service.monitor = android:foregroundServiceType="mediaPlayback"
+
+
 [buildozer]
 # (int) Log level (0 = error only, 1 = info, 2 = debug)
 log_level = 2
